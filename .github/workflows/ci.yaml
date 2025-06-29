@@ -83,7 +83,7 @@ jobs:
           cd litefunctions
           docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust-${RUST_FILE}:${{ github.sha }} \
             runtimes/rust/ \
-            -f build/Dockerfile.rust \
+            -f build/runtimes/Dockerfile.rust \
             --build-arg PROJECT=${REPO_NAME} \
             --build-arg NAME=${RUST_FILE} \
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
@@ -145,7 +145,7 @@ jobs:
           cd litefunctions
           docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }} \
             runtimes/go/ \
-            -f build/Dockerfile.go \
+            -f build/runtimes/Dockerfile.go \
             --build-arg PROJECT=${REPO_NAME} \
             --build-arg NAME=${GO_FILE} \
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
