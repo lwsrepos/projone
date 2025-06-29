@@ -1,0 +1,310 @@
+name: Docker
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+on:
+  push:
+    branches: [ "main" ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Job to detect which runtimes have changes
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.changes.outputs.rust }}
+      go: ${{ steps.changes.outputs.go }}
+      zig: ${{ steps.changes.outputs.zig }}
+      python: ${{ steps.changes.outputs.python }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            rust:
+              - 'functions/rs/**'
+            go:
+              - 'functions/go/**'
+            zig:
+              - 'functions/zig/**'
+            python:
+              - 'functions/python/**'
+
+  # Build Rust runtime
+  build-rust:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: current-repo
+
+      - name: Checkout litefunctions repository
+        uses: actions/checkout@v4
+        with:
+          repository: ashupednekar/litefunctions
+          path: litefunctions
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Python Docker image
+        id: build-and-push
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          PYTHON_FILE=$(find current-repo/functions/python -name "*.py" -type f | head -1 | xargs basename -s .py)
+          
+          cd litefunctions
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-python:${{ github.sha }} \
+            runtimes/python/ \
+            -f build/Dockerfile.python \
+            --build-arg PROJECT=${REPO_NAME} \
+            --build-arg NAME=${PYTHON_FILE} \
+            --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-python:${{ github.sha }}
+          fi
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-python:${{ github.sha }}
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
+          cosign sign --yes ${IMAGE_TAG}@${DIGEST}0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust
+
+      - name: Build and push Rust Docker image
+        id: build-and-push
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          # Assuming you want to get the main .rs file from functions/rs directory
+          RUST_FILE=$(find current-repo/functions/rs -name "*.rs" -type f | head -1 | xargs basename -s .rs)
+          
+          cd litefunctions
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust:${{ github.sha }} \
+            runtimes/rust/ \
+            -f build/Dockerfile.rust \
+            --build-arg PROJECT=${REPO_NAME} \
+            --build-arg NAME=${RUST_FILE} \
+            --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust:${{ github.sha }}
+          fi
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust:${{ github.sha }}
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
+          cosign sign --yes ${IMAGE_TAG}@${DIGEST}
+
+  # Build Go runtime
+  build-go:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: current-repo
+
+      - name: Checkout litefunctions repository
+        uses: actions/checkout@v4
+        with:
+          repository: ashupednekar/litefunctions
+          path: litefunctions
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Go Docker image
+        id: build-and-push
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          GO_FILE=$(find current-repo/functions/go -name "*.go" -type f | head -1 | xargs basename -s .go)
+          
+          cd litefunctions
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }} \
+            runtimes/go/ \
+            -f build/Dockerfile.go \
+            --build-arg PROJECT=${REPO_NAME} \
+            --build-arg NAME=${GO_FILE} \
+            --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }}
+          fi
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }}
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
+          cosign sign --yes ${IMAGE_TAG}@${DIGEST}
+
+  # Build Zig runtime
+  build-zig:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.zig == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: current-repo
+
+      - name: Checkout litefunctions repository
+        uses: actions/checkout@v4
+        with:
+          repository: ashupednekar/litefunctions
+          path: litefunctions
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Zig Docker image
+        id: build-and-push
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          ZIG_FILE=$(find current-repo/functions/zig -name "*.zig" -type f | head -1 | xargs basename -s .zig)
+          
+          cd litefunctions
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-zig:${{ github.sha }} \
+            runtimes/zig/ \
+            -f build/Dockerfile.zig \
+            --build-arg PROJECT=${REPO_NAME} \
+            --build-arg NAME=${ZIG_FILE} \
+            --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-zig:${{ github.sha }}
+          fi
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-zig:${{ github.sha }}
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
+          cosign sign --yes ${IMAGE_TAG}@${DIGEST}
+
+  # Build Python runtime
+  build-python:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: current-repo
+
+      - name: Checkout litefunctions repository
+        uses: actions/checkout@v4
+        with:
+          repository: ashupednekar/litefunctions
+          path: litefunctions
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba
