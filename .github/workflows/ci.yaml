@@ -79,7 +79,7 @@ jobs:
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           RUST_FILE=$(find current-repo/functions/rs -name "*.rs" -type f | head -1 | xargs basename -s .rs)
-          IMG_TAG=${{ env.REGISTRY }}/runtime-rust-${{ env.REPO_NAME }}-${RUST_FILE}:latest  #${{ github.sha }}  
+          IMG_TAG=${{ env.REGISTRY }}/{{ env.REPO_NAME }}/runtime-rust-${{ env.REPO_NAME }}-${RUST_FILE}:latest  #${{ github.sha }}  
           cd litefunctions
           docker build -t ${IMG_TAG} \
             runtimes/rust/ \
