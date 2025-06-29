@@ -89,7 +89,7 @@ jobs:
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
           
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            docker push IMG_TAG 
+            docker push ${IMG_TAG} 
           fi
 
       - name: Sign the published Docker image
