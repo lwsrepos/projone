@@ -85,7 +85,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Python Docker image
-        id: build-and-push
+        id: build-and-push-python
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           PYTHON_FILE=$(find current-repo/functions/python -name "*.py" -type f | head -1 | xargs basename -s .py)
@@ -125,7 +125,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust
 
       - name: Build and push Rust Docker image
-        id: build-and-push
+        id: build-and-push-rust
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           # Assuming you want to get the main .rs file from functions/rs directory
@@ -190,7 +190,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Go Docker image
-        id: build-and-push
+        id: build-and-push-go
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           GO_FILE=$(find current-repo/functions/go -name "*.go" -type f | head -1 | xargs basename -s .go)
@@ -254,7 +254,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Zig Docker image
-        id: build-and-push
+        id: build-and-push-zig
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           ZIG_FILE=$(find current-repo/functions/zig -name "*.zig" -type f | head -1 | xargs basename -s .zig)
