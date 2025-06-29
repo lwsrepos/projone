@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REPO_NAME: ${{ github.repository }}
 
 jobs:
   detect-changes:
@@ -79,9 +79,9 @@ jobs:
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           RUST_FILE=$(find current-repo/functions/rs -name "*.rs" -type f | head -1 | xargs basename -s .rs)
-          
+          IMG_TAG = ${{ env.REGISTRY }}/runtime-rust-${{ env.REPO_NAME }}-${RUST_FILE}:latest  #${{ github.sha }}  
           cd litefunctions
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust-${RUST_FILE}:${{ github.sha }} \
+          docker build -t IMG_TAG \
             runtimes/rust/ \
             -f build/runtimes/Dockerfile.rust \
             --build-arg PROJECT=${REPO_NAME} \
@@ -89,13 +89,13 @@ jobs:
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
           
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust-${RUST_FILE}:${{ github.sha }}
+            docker push IMG_TAG 
           fi
 
       - name: Sign the published Docker image
         if: ${{ github.event_name != 'pull_request' }}
         env:
-          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust:${{ github.sha }}
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}-rust:${{ github.sha }}
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
           cosign sign --yes ${IMAGE_TAG}@${DIGEST}
@@ -143,7 +143,7 @@ jobs:
           GO_FILE=$(find current-repo/functions/go -name "*.go" -type f | head -1 | xargs basename -s .go)
           
           cd litefunctions
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }} \
+          docker build -t ${{ env.REGISTRY }}/${{ env.REPO_NAME }}-go:${{ github.sha }} \
             runtimes/go/ \
             -f build/runtimes/Dockerfile.go \
             --build-arg PROJECT=${REPO_NAME} \
@@ -151,13 +151,13 @@ jobs:
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }}
           
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }}
+            docker push ${{ env.REGISTRY }}/${{ env.REPO_NAME }}-go:${{ github.sha }}
           fi
 
       - name: Sign the published Docker image
         if: ${{ github.event_name != 'pull_request' }}
         env:
-          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-go:${{ github.sha }}
+          IMAGE_TAG: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}-go:${{ github.sha }}
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_TAG} | cut -d'@' -f2)
           cosign sign --yes ${IMAGE_TAG}@${DIGEST}
