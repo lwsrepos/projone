@@ -81,7 +81,7 @@ jobs:
           RUST_FILE=$(find current-repo/functions/rs -name "*.rs" -type f | head -1 | xargs basename -s .rs)
           
           cd litefunctions
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust-${{ RUST_FILE }}:${{ github.sha }} \
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-rust-${RUST_FILE}:${{ github.sha }} \
             runtimes/rust/ \
             -f build/Dockerfile.rust \
             --build-arg PROJECT=${REPO_NAME} \
