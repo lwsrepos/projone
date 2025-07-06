@@ -69,6 +69,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Always pull the latest base image to get updates
+      - name: Pull latest base image
+        run: |
+          docker pull ashupednekar535/litefunctions-runtime-rs:base
+
       - name: Build and push Rust Docker image
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
@@ -79,9 +84,9 @@ jobs:
           
           cd litefunctions
 
-          # Build with registry cache (most efficient)
+          # Build with registry cache and always pull base images
           docker buildx build \
-            --push \
+            --pull \
             --tag ${IMG_TAG} \
             --cache-from=type=registry,ref=${CACHE_TAG} \
             --cache-to=type=registry,ref=${CACHE_TAG},mode=max \
@@ -92,9 +97,10 @@ jobs:
             --build-arg GIT_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             runtimes/rust/
           
-          # For pull requests, build without pushing
+          # For pull requests, build without pushing but still pull latest
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             docker buildx build \
+              --pull \
               --tag ${IMG_TAG} \
               --cache-from=type=registry,ref=${CACHE_TAG} \
               --cache-from=ashupednekar535/litefunctions-runtime-rs:base \
