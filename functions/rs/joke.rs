@@ -8,5 +8,5 @@ pub async fn handler(_state: AppState, _req_id: Option<&str>) -> Result<Vec<u8>>
         .bytes()
         .await.map_err(|e| StandardError::new("ERR-002"))?; 
     Ok(res.into())
-}
+} 
 
