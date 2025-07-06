@@ -1,4 +1,4 @@
-use crate::{prelude::Result, pkg::conf::settings, pkg::state::AppState};
+use crate::{prelude::Result, pkg::state::AppState};
 use standard_error::StandardError;
 use reqwest;
 
