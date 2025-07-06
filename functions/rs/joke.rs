@@ -13,6 +13,5 @@ pub async fn handler(_state: AppState, _req_id: Option<&str>) -> Result<String> 
         .await?
         .json::<Joke>()
         .await?;
-
     Ok(format!("{} - {}", res.setup, res.punchline).to_vec())
 }
