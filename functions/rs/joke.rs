@@ -1,4 +1,5 @@
 use crate::{prelude::Result, pkg::conf::settings, pkg::state::AppState};
+use standard_error::StandardError;
 use reqwest;
 
 pub async fn handler(_state: AppState, _req_id: Option<&str>) -> Result<Vec<u8>> {
