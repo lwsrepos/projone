@@ -20,7 +20,7 @@ func Handle(c *gin.Context) {
     if err := c.ShouldBindJSON(&input); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
         return
-    }
+    }// spotlight-wq-test\n
 
     name := "stranger"
     if input.Name != nil && *input.Name != "" {
